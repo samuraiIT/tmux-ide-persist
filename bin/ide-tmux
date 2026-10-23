@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Explicit session names avoid attaching two IDE tabs to the wrong task.
+set -euo pipefail
+command -v tmux >/dev/null || { echo 'Install tmux first (see README).' >&2; exit 1; }
+project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+socket_name=ide-persist
+action=${1:-attach}
+case "$action" in
+  list) exec tmux -L "$socket_name" list-sessions ;;
+  attach)
+    session=${2:-work}
+    [[ "$session" =~ ^[a-zA-Z0-9_-]+$ ]] || { echo 'Use letters, digits, _ or - for session name.' >&2; exit 2; }
+    if [[ -n ${TMUX:-} ]]; then
+      echo 'Already inside tmux. Use Ctrl+b d before attaching another session.' >&2
+      exit 2
+    fi
+    [[ -t 0 && -t 1 ]] || { echo 'Attach requires an interactive terminal.' >&2; exit 2; }
+    exec tmux -L "$socket_name" -f "$project_dir/config/tmux.conf" new-session -A -s "$session"
+    ;;
+  *) echo 'Usage: ide-tmux [attach [session-name] | list]' >&2; exit 2 ;;
+esac
